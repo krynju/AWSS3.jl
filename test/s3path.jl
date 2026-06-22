@@ -473,9 +473,15 @@ function s3path_tests(base_config)
         config = assume_testset_role("ReadObject"; base_config)
 
         function _generate_exception(code)
-            return AWSException(
-                code, "", nothing, AWS.HTTP.Exceptions.StatusError(404, "", "", ""), nothing
-            )
+            # `StatusError` moved out of the `Exceptions` submodule in HTTP.jl 2.0 and
+            # its constructor changed from `(status, method, target, response)` to
+            # `(status, response)`.
+            status_error = if isdefined(AWS.HTTP, :Exceptions)
+                AWS.HTTP.Exceptions.StatusError(404, "", "", "")
+            else
+                AWS.HTTP.StatusError(404, AWS.HTTP.Response(404))
+            end
+            return AWSException(code, "", nothing, status_error, nothing)
         end
 
         @testset "top level bucket" begin
