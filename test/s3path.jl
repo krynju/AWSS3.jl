@@ -475,11 +475,14 @@ function s3path_tests(base_config)
         function _generate_exception(code)
             # `StatusError` moved out of the `Exceptions` submodule in HTTP.jl 2.0 and
             # its constructor changed from `(status, method, target, response)` to
-            # `(status, response)`.
-            status_error = if isdefined(AWS.HTTP, :Exceptions)
-                AWS.HTTP.Exceptions.StatusError(404, "", "", "")
-            else
+            # `(status, response)`. Detect 2.x via `HTTP.EmptyBody` (a genuine 2.x-only
+            # type) rather than the `Exceptions` submodule, which 2.x re-adds as a
+            # deprecating shim (JuliaWeb/HTTP.jl#1315) and so no longer distinguishes
+            # the versions.
+            status_error = if isdefined(AWS.HTTP, :EmptyBody)
                 AWS.HTTP.StatusError(404, AWS.HTTP.Response(404))
+            else
+                AWS.HTTP.Exceptions.StatusError(404, "", "", "")
             end
             return AWSException(code, "", nothing, status_error, nothing)
         end
