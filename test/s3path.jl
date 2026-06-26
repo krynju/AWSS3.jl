@@ -1,3 +1,8 @@
+# HTTP.jl only defines its own `VERSION` constant in 2.x; in 1.x `AWS.HTTP.VERSION`
+# is the binding re-exported from `Base` (Julia's version), so check that `VERSION`
+# is actually owned by the `HTTP` module before trusting it.
+const _HTTP_V2 = Base.binding_module(AWS.HTTP, :VERSION) === AWS.HTTP && v"2" <= AWS.HTTP.VERSION < v"3"
+
 function test_s3_constructors(ps::PathSet)
     bucket_name = ps.root.bucket
     @test S3Path(bucket_name, "pathset-root/foo/baz.txt") == ps.baz
@@ -475,11 +480,8 @@ function s3path_tests(base_config)
         function _generate_exception(code)
             # `StatusError` moved out of the `Exceptions` submodule in HTTP.jl 2.0 and
             # its constructor changed from `(status, method, target, response)` to
-            # `(status, response)`. Detect 2.x via `HTTP.EmptyBody` (a genuine 2.x-only
-            # type) rather than the `Exceptions` submodule, which 2.x re-adds as a
-            # deprecating shim (JuliaWeb/HTTP.jl#1315) and so no longer distinguishes
-            # the versions.
-            status_error = if isdefined(AWS.HTTP, :EmptyBody)
+            # `(status, response)`.
+            status_error = if _HTTP_V2
                 AWS.HTTP.StatusError(404, AWS.HTTP.Response(404))
             else
                 AWS.HTTP.Exceptions.StatusError(404, "", "", "")
