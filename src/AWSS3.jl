@@ -62,10 +62,18 @@ const AbstractS3Version = Union{AbstractString,Nothing}
 const AbstractS3PathConfig = Union{AbstractAWSConfig,Nothing}
 
 # Utility function to workaround https://github.com/JuliaCloud/AWS.jl/issues/547
+#
+# HTTP.jl 2.x canonicalizes response header names (e.g. S3's `ETag` becomes `Etag`),
+# so a lookup that only tries the lowercase and verbatim spellings misses it. Fall
+# back to a full case-insensitive scan before giving up.
 function get_robust_case(x, key)
     lkey = lowercase(key)
     haskey(x, lkey) && return x[lkey]
-    return x[key]
+    haskey(x, key) && return x[key]
+    for (k, v) in x
+        lowercase(k) == lkey && return v
+    end
+    throw(KeyError(key))
 end
 
 __init__() = FilePathsBase.register(S3Path)
