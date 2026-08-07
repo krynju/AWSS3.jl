@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    name: Julia ${{ matrix.version }} - HTTP ${{ matrix.http }} - ${{ matrix.os }} - ${{ matrix.arch }}
     if: ${{ github.event_name != 'pull_request' }}  # Avoid running on PRs as OIDC will fail when running on a fork
     # These permissions are needed to:
     # - Checking out the repository (`contents: read`)
@@ -31,10 +31,18 @@ jobs:
           - "min"  # Earliest supported version
           - "lts"  # Long Term Stable
           - "1"    # Latest release
+        http:
+          - "1"
+          - "2"
         os:
           - ubuntu-latest
         arch:
           - x64
+        exclude:
+          # HTTP.jl 2 requires Julia >= 1.10, which excludes the "min" (earliest
+          # supported) Julia version.
+          - version: "min"
+            http: "2"
     steps:
       - uses: actions/checkout@v4
       - name: Debug OIDC Claims
@@ -52,6 +60,21 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
+      # Pin HTTP.jl to the matrix major before instantiation so both the 1.x and
+      # 2.x code paths are exercised. Pinning persists through the re-resolve that
+      # `Pkg.test` performs.
+      #
+      # Skip the pin on the "min" job: the oldest supported Julia can only ever
+      # resolve HTTP 1.x anyway (HTTP 2 requires Julia >= 1.10) and a hard pin
+      # there only risks blocking the tiered resolver.
+      - name: Pin HTTP.jl to v${{ matrix.http }}
+        if: ${{ matrix.version != 'min' }}
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using Pkg
+          Pkg.add(PackageSpec(; name="HTTP", uuid="cd3eb016-35fb-5094-929b-558a96fad6f3", version="${{ matrix.http }}"))
+          Pkg.pin("HTTP")
+          Pkg.status()
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 

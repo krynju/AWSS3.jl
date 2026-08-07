@@ -240,6 +240,11 @@ end
 
 Retrieves metadata from an object without returning the object itself.
 
+Returns the response headers as a `Dict`. The key casing depends on the HTTP.jl version in
+use: HTTP.jl 1.x preserves the casing sent by S3 (e.g. `"ETag"`, `"x-amz-meta-foo"`) whereas
+HTTP.jl 2.x canonicalizes header names (e.g. `"Etag"`, `"X-Amz-Meta-Foo"`). Look up keys
+case-insensitively if you need to support both.
+
 # API Calls
 
 - [`HeadObject`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html)
