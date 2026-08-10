@@ -45,11 +45,6 @@ jobs:
             http: "2"
     steps:
       - uses: actions/checkout@v4
-      - name: Debug OIDC Claims
-        if: ${{ runner.os == 'Linux' }}
-        uses: github/actions-oidc-debugger@main
-        with:
-          audience: sts.amazonaws.com
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v2
         with:
