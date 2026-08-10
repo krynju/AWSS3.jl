@@ -4,8 +4,12 @@ function awss3_tests(base_config)
     @testset "Robust key selection" begin
         lower_dict = Dict("foo-bar" => 1)
         upper_dict = Dict("Foo-Bar" => 1)
+        # HTTP.jl 2.x canonicalizes header names, so the stored key may match neither
+        # the lowercase nor the requested spelling (e.g. `ETag` is stored as `Etag`).
+        canonical_dict = Dict("Etag" => 1)
         @test AWSS3.get_robust_case(lower_dict, "Foo-Bar") == 1
         @test AWSS3.get_robust_case(upper_dict, "Foo-Bar") == 1
+        @test AWSS3.get_robust_case(canonical_dict, "ETag") == 1
         @test_throws KeyError("Foo-Bar") AWSS3.get_robust_case(Dict(), "Foo-Bar")
     end
 
@@ -60,7 +64,11 @@ function awss3_tests(base_config)
             @test e.cause.status == 404
         end
 
-        @test s3_get_meta(bucket_name, "key3")["x-amz-meta-foo"] == "bar"
+        # `s3_get_meta` returns the response headers verbatim, and HTTP.jl 2.x
+        # canonicalizes header names (`x-amz-meta-foo` becomes `X-Amz-Meta-Foo`), so
+        # look the key up case-insensitively.
+        meta = s3_get_meta(bucket_name, "key3")
+        @test AWSS3.get_robust_case(meta, "x-amz-meta-foo") == "bar"
 
         @test isa(
             s3_put(config, bucket_name, "key6", "data"; parse_response=false), AWS.Response
@@ -141,7 +149,8 @@ function awss3_tests(base_config)
     @testset "Check Metadata" begin
         config = assume_testset_role("ReadObject"; base_config)
         meta = s3_get_meta(config, bucket_name, "key1")
-        @test meta["ETag"] == "\"68bc8898af64159b72f349b391a7ae35\""
+        # HTTP.jl 2.x canonicalizes `ETag` to `Etag`
+        @test AWSS3.get_robust_case(meta, "ETag") == "\"68bc8898af64159b72f349b391a7ae35\""
     end
 
     # https://github.com/samoconnor/AWSS3.jl/issues/24

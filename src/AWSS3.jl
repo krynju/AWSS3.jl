@@ -62,10 +62,18 @@ const AbstractS3Version = Union{AbstractString,Nothing}
 const AbstractS3PathConfig = Union{AbstractAWSConfig,Nothing}
 
 # Utility function to workaround https://github.com/JuliaCloud/AWS.jl/issues/547
+#
+# HTTP.jl 2.x canonicalizes response header names (e.g. S3's `ETag` becomes `Etag`),
+# so a lookup that only tries the lowercase and verbatim spellings misses it. Fall
+# back to a full case-insensitive scan before giving up.
 function get_robust_case(x, key)
     lkey = lowercase(key)
     haskey(x, lkey) && return x[lkey]
-    return x[key]
+    haskey(x, key) && return x[key]
+    for (k, v) in x
+        lowercase(k) == lkey && return v
+    end
+    throw(KeyError(key))
 end
 
 __init__() = FilePathsBase.register(S3Path)
@@ -231,6 +239,11 @@ end
    s3_get_meta([::AbstractAWSConfig], bucket, path; [version], kwargs...)
 
 Retrieves metadata from an object without returning the object itself.
+
+Returns the response headers as a `Dict`. The key casing depends on the HTTP.jl version in
+use: HTTP.jl 1.x preserves the casing sent by S3 (e.g. `"ETag"`, `"x-amz-meta-foo"`) whereas
+HTTP.jl 2.x canonicalizes header names (e.g. `"Etag"`, `"X-Amz-Meta-Foo"`). Look up keys
+case-insensitively if you need to support both.
 
 # API Calls
 
