@@ -62,7 +62,7 @@ jobs:
       - uses: julia-actions/cache@v2
       # Pin HTTP.jl to the matrix major before instantiation so both the 1.x and
       # 2.x code paths are exercised. Pinning persists through the re-resolve that
-      # `Pkg.test` performs.
+      # `Pkg.test` performs. 
       #
       # Skip the pin on the "min" job: the oldest supported Julia can only ever
       # resolve HTTP 1.x anyway (HTTP 2 requires Julia >= 1.10) and a hard pin
